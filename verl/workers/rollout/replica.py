@@ -350,11 +350,15 @@ def _load_trtllm():
 
     return TRTLLMReplica
 
+def _load_ray_serve():
+    from verl.workers.rollout.ray_serve_rollout import RayServeReplica
+    return RayServeReplica
 
 # Register built-in types
 RolloutReplicaRegistry.register("vllm", _load_vllm)
 RolloutReplicaRegistry.register("sglang", _load_sglang)
 RolloutReplicaRegistry.register("trtllm", _load_trtllm)
+RolloutReplicaRegistry.register("ray_serve", _load_ray_serve)
 
 
 # Original function for backward compatibility
