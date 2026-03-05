@@ -1,5 +1,6 @@
 env_vars:
   PYTHONPATH: "."
+  ROUTER_CONFIG_PATH: "./scheduler.yaml"
   NCCL_DEBUG: "INFO"
   NUM_WORKERS: "4"
   CPUS_PER_WORKER: "32"
@@ -19,3 +20,6 @@ pip:
   packages:
     - torch
     - torchvision
+py_modules:
+  - "/usr/local/google/home/aniketmohanty/Projects/py-inference-scheduler/integration"
+  - "/usr/local/google/home/aniketmohanty/Projects/py-inference-scheduler/scheduling"
