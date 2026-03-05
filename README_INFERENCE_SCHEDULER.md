@@ -1,6 +1,6 @@
-# Running GRPO on GKE A3/H200
+# Running GRPO on GKE A3/H200 with Custom Py-Inference-Scheduler
 
-This guide outlines the steps required to deploy a Ray cluster and successfully run a `verl` Group Relative Policy Optimization (GRPO) training job on Google Kubernetes Engine (GKE) A3 Ultra instances equipped with H200 GPUs.
+This guide outlines the steps required to deploy a Ray cluster and successfully run a `verl` Group Relative Policy Optimization (GRPO) training job on Google Kubernetes Engine (GKE) A3 Ultra instances equipped with H200 GPUs, seamlessly routing RL environment trajectories through the native `py-inference-scheduler`.
 
 ## 1. Cluster Setup & Topology Constraints
 
@@ -26,13 +26,15 @@ kubectl port-forward svc/verl-inference-scheduler-head-svc 8265:8265 -n default 
 export RAY_ADDRESS="http://127.0.0.1:8265"
 ```
 
-## 3. Submit the GRPO Job
+## 3. Submit the GRPO Job (Scheduler Hook)
 
-The architecture requires configuration to be split into two tiers to prevent operating system crashes:
-*   **Hardware bindings** (like `LD_LIBRARY_PATH`) live in the Kubernetes YAML.
-*   **Networking behavior** (like `GLOO_SOCKET_IFNAME`, `NCCL_NET_GDR_LEVEL`, and `pip` dependencies) live in `runtime-env.yaml`.
+The custom Py-Inference-Scheduler integration loads dynamically inside the `verl` PPO actor worker closure safely using standard PyTorch `hydra` overrides. It watches Prometheus telemetry on the cluster and intelligently routes HTTP/RPC trajectories natively relying on the `verl_hook.py` intercept.
 
-Run the official example script, injecting the runtime environment and overriding the hardware dimensions to match our 2-node, 16-GPU cluster.
+### Requirements:
+*   **`runtime-env.yaml`**: Must export the specific `ROUTER_CONFIG_PATH: "./scheduler.yaml"` routing payload, and bundle the `py-inference-scheduler` namespace via `py_modules: ["../py-inference-scheduler/integration", "../py-inference-scheduler/scheduling"]`.
+*   **vLLM Telemetry**: We enable Prometheus and log statistics so the `aiohttp` loop inside the router can intercept and apply native workload backpressure.
+
+Execute the following `ray job submit` command to bind the dynamic scheduler into the live training cluster:
 
 > [!WARNING]  
 > You **must** override `model_dtype=bfloat16`. 
@@ -52,7 +54,14 @@ ray job submit \
     actor_rollout_ref.rollout.tensor_model_parallel_size=4 \
     actor_rollout_ref.rollout.n=8 \
     actor_rollout_ref.actor.fsdp_config.model_dtype=bfloat16 \
-    trainer.logger="['console']"
+    trainer.logger="['console']" \
+    +actor_rollout_ref.rollout.agent.agent_loop_manager_class="integration.verl.verl_hook.PyInferenceAgentLoopManager" \
+    +actor_rollout_ref.rollout.disable_log_stats=False \
+    +actor_rollout_ref.rollout.prometheus.enable=True
 ```
 
 *(Note: Disable `wandb` logging by forcing `trainer.logger="['console']"` to prevent authentication exceptions.)*
+
+## 4. Get ready for inexplicably terrible rollouts!!!
+
+I am trying :/
