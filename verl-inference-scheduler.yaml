@@ -68,11 +68,11 @@ spec:
           resources:
             limits:
               cpu: '64'
-              memory: 128Gi
+              memory: 1024Gi
               nvidia.com/gpu: '8'
             requests:
               cpu: '64'
-              memory: 128Gi
+              memory: 1024Gi
               nvidia.com/gpu: '8'
           volumeMounts:
           - mountPath: /tmp/ray
